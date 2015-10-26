@@ -2,10 +2,12 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/csv"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"sort"
@@ -37,6 +39,7 @@ type Person struct {
 
 type Event struct {
 	XMLName     xml.Name `xml:"event"`
+	Guid        string   `xml:"guid,attr"`
 	Id          int      `xml:"id,attr"`
 	Start       string   `xml:"start"`
 	Duration    string   `xml:"duration"`
@@ -75,7 +78,8 @@ type Day struct {
 type Schedule struct {
 	XMLName xml.Name `xml:"schedule"`
 	Conf    Conference
-	Days    []Day `xml:"days"`
+	Days    []Day  `xml:"days"`
+	Version string `xml:"version"`
 }
 
 // CSV data
@@ -131,7 +135,8 @@ func main() {
 		//Title: "A Title", Slug: "a_title", Track: "Containers", Type: "Talk",
 		//Abstract: "An abstract", Description: "A Longer Description",
 		//Persons: []Person{*p}}
-		e := &Event{Id: id, Start: t, Duration: dur, Room: "Main room",
+		uuid, _ := newUUID()
+		e := &Event{Guid: uuid, Id: id, Start: t, Duration: dur, Room: "Main room",
 			Slug: genSlug(r[idx["title"]]), Title: r[idx["title"]],
 			Type: "Talk", Track: "Main", Language: "en",
 			Abstract: r[idx["description"]], Persons: ppl}
@@ -151,7 +156,7 @@ func main() {
 		cd = append(cd, Day{Index: i, Date: d, Rooms: []Room{r}})
 	}
 
-	schedule := Schedule{Conf: *conf, Days: cd}
+	schedule := Schedule{Conf: *conf, Days: cd, Version: "1"}
 	output, err := xml.MarshalIndent(schedule, "  ", "  ")
 	if err != nil {
 		fmt.Printf("error with XML: %v\n", err)
@@ -209,4 +214,19 @@ func genSpeakerId(s string) int {
 	m := md5.Sum([]byte(s))
 	b, l := binary.Uvarint(m[:])
 	return int(math.Mod(float64(b+uint64(l)), 1024))
+}
+
+// newUUID generates a random UUID according to RFC 4122
+func newUUID() (string, error) {
+	uuid := make([]byte, 16)
+	n, err := io.ReadFull(rand.Reader, uuid)
+	if n != len(uuid) || err != nil {
+		return "", err
+
+	}
+	// variant bits; see section 4.1.1
+	uuid[8] = uuid[8]&^0xc0 | 0x80
+	// version 4 (pseudo-random); see section 4.1.3
+	uuid[6] = uuid[6]&^0xf0 | 0x40
+	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:]), nil
 }
