@@ -134,7 +134,7 @@ func main() {
 		e := &Event{Id: id, Start: t, Duration: dur, Room: "Main room",
 			Slug: genSlug(r[idx["title"]]), Title: r[idx["title"]],
 			Type: "Talk", Track: "Main", Language: "en",
-			Description: r[idx["description"]], Persons: ppl}
+			Abstract: r[idx["description"]], Persons: ppl}
 		days[d] = append(days[d], e)
 	}
 
