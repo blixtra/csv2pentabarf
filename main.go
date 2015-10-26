@@ -132,8 +132,9 @@ func main() {
 		//Abstract: "An abstract", Description: "A Longer Description",
 		//Persons: []Person{*p}}
 		e := &Event{Id: id, Start: t, Duration: dur, Room: "Main room",
-			Title: r[idx[""]], Type: "Talk", Description: r[idx["description"]],
-			Persons: ppl}
+			Slug: genSlug(r[idx["title"]]), Title: r[idx["title"]],
+			Type: "Talk", Track: "Main", Language: "en",
+			Description: r[idx["description"]], Persons: ppl}
 		days[d] = append(days[d], e)
 	}
 
@@ -190,7 +191,7 @@ func getTimeInfo(start string, end string) (d string, t string, dur string) {
 	return d, t, dur
 }
 
-func GenerateSlug(str string) (slug string) {
+func genSlug(str string) (slug string) {
 	return strings.Map(func(r rune) rune {
 		switch {
 		case r == ' ', r == '-':
