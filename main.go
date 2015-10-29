@@ -21,13 +21,10 @@ import (
 type Conference struct {
 	XMLName          xml.Name `xml:"conference"`
 	Title            string   `xml:"title"`
-	Subtitle         string   `xml:"subtitle"`
-	Venue            string   `xml:"venue"`
-	City             string   `xml:"city"`
+	Acronym          string   `xml:"acronym"`
 	Start            string   `xml:"start"`
 	End              string   `xml:"end"`
 	Days             int      `xml:"days"`
-	DayChange        string   `xml:"day_change"`
 	TimeslotDuration string   `xml:"timeslot_duration"`
 }
 
@@ -37,14 +34,22 @@ type Person struct {
 	Name    string   `xml:",chardata"`
 }
 
+type Recording struct {
+	XMLName xml.Name `xml:"recording"`
+	License string   `xml:"license"`
+	Optout  string   `xml:"optout"`
+}
+
 type Event struct {
 	XMLName     xml.Name `xml:"event"`
 	Guid        string   `xml:"guid,attr"`
 	Id          int      `xml:"id,attr"`
+	Date        string   `xml:"date"`
 	Start       string   `xml:"start"`
 	Duration    string   `xml:"duration"`
 	Room        string   `xml:"room"`
 	Slug        string   `xml:"slug"`
+	Rec         Recording
 	Title       string   `xml:"title"`
 	Subtitle    string   `xml:"subtitle"`
 	Track       string   `xml:"track"`
@@ -77,9 +82,9 @@ type Day struct {
 
 type Schedule struct {
 	XMLName xml.Name `xml:"schedule"`
+	Version string   `xml:"version"`
 	Conf    Conference
-	Days    []Day  `xml:"days"`
-	Version string `xml:"version"`
+	Days    []Day `xml:"days"`
 }
 
 // CSV data
@@ -94,14 +99,12 @@ var (
 		"org":         6,
 	}
 	header = `<?xml version="1.0" encoding="UTF-8"?>`
-	conf   = &Conference{Title: "systemd.conf 2015", Venue: "betahaus",
-		City: "Berlin", Start: "2015-11-05", End: "2015-11-07", Days: 2,
-		DayChange: "08:00:00", TimeslotDuration: "00:05:00"}
+	conf   = &Conference{Title: "systemd.conf 2015", Acronym: "systemdconf2015",
+		Start: "2015-11-05", End: "2015-11-07", Days: 2, TimeslotDuration: "00:05:00"}
+	recording = &Recording{License: "CC-BY-SA", Optout: "false"}
 )
 
 func main() {
-	//d := &Day{Index: 1, Date: "2015-11-04", Rooms: []Room{*r}}
-
 	fmt.Println("\nReading CSV")
 	csvFile, err := os.Open("schedule.csv")
 	if err != nil {
@@ -136,10 +139,10 @@ func main() {
 		//Abstract: "An abstract", Description: "A Longer Description",
 		//Persons: []Person{*p}}
 		uuid, _ := newUUID()
-		e := &Event{Guid: uuid, Id: id, Start: t, Duration: dur, Room: "Main room",
-			Slug: genSlug(r[idx["title"]]), Title: r[idx["title"]],
-			Type: "Talk", Track: "Main", Language: "en",
-			Abstract: r[idx["description"]], Persons: ppl}
+		e := &Event{Guid: uuid, Id: id, Date: fmt.Sprintf("%sT%s:00+01:00", d, t),
+			Start: t, Duration: dur, Room: "Main room", Slug: genSlug(r[idx["title"]]),
+			Rec: *recording, Title: r[idx["title"]], Type: "Talk", Track: "Main",
+			Language: "en", Abstract: r[idx["description"]], Persons: ppl}
 		days[d] = append(days[d], e)
 	}
 
@@ -153,7 +156,7 @@ func main() {
 	var cd []Day
 	for i, d := range sd {
 		r := Room{Name: "Main room", Events: days[d]}
-		cd = append(cd, Day{Index: i, Date: d, Rooms: []Room{r}})
+		cd = append(cd, Day{Index: i + 1, Date: d, Rooms: []Room{r}})
 	}
 
 	schedule := Schedule{Conf: *conf, Days: cd, Version: "1"}
@@ -213,7 +216,7 @@ func genSlug(str string) (slug string) {
 func genSpeakerId(s string) int {
 	m := md5.Sum([]byte(s))
 	b, l := binary.Uvarint(m[:])
-	return int(math.Mod(float64(b+uint64(l)), 1024))
+	return int(math.Mod(float64(b+uint64(l)), 1024)) + 1
 }
 
 // newUUID generates a random UUID according to RFC 4122
